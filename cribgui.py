@@ -68,10 +68,6 @@ class CrossCribGUI:
         ###
         self.main()
         
-    def test(self):
-        cards =  self._deck.sprites()[:25]
-        for space in self._grid.sprites():
-            self._screen.blit(cards.pop().image, space.rect)
             
     def keydown(self, event):
         """
@@ -122,22 +118,7 @@ class CrossCribGUI:
                     self.keydown(event)
                 elif event.type == MOUSEBUTTONDOWN:
                     self.click(event)
-            """
-            self._screen.blit(self._deck._cards[
-                                  random.choice(
-                self._deck._cards.keys())].image,
-                               self._screen_rect)
-            """         
-            """  
-            offset = 0
-            for card in self._deck.sprites():
-                if card.suit == 'heart':
-                    card.rect.x = CARD_WIDTH * offset
-                    self._screen.blit(card.image, card.rect)
-                    offset += 1
-            """
-            
-            #self.test()
+
             self._grid.draw(self._grid.image)
             self._screen.blit(self._grid.image, self._grid.rect)
             self.update()
