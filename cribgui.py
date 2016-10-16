@@ -71,6 +71,8 @@ class CrossCribGUI:
     def __init__(self):
         #intialize pygame screen and setup 
         self._setup_screens()
+        #initialize sounds
+        self._setup_sounds()
         #init fonts
         self._setup_fonts()
         #setup game menus
@@ -107,21 +109,78 @@ class CrossCribGUI:
         self._scorebg = pygame.Surface((WIDTH - 100, HEIGHT - 100))
         self._scorebg.set_alpha(230)
         self._scorebg.fill(BLACK)
-        self._continue_button = pygame.Surface((200, 50))
-        self._continue_button.set_alpha(0)
-        self._continue_rect =  self._continue_button.get_rect(left=550,top=610)
-        self._deal_btn =  pygame.Surface((200, 50))
-        self._deal_btn.set_alpha(0)
-        self._deal_rect = self._deal_btn.get_rect(left=550, top=340)
-        self._scorenumbg = pygame.Surface((38, 38))
-        self._scorenumbg.fill(WHITE)
+        self._gameoverbg = pygame.Surface((300, 300))
+        self._gameoverbg.fill(BLACK)
+        self._gameoverbg.set_alpha(230)
+        self._gameoverbg_rect = self._gameoverbg.get_rect(
+                                  centerx=self._screen_rect.centerx,
+                                  centery=self._screen_rect.centery)
         self._discard, self._discard_rect = load_image('discard.png', alpha=True)
         self._discard_pos =  3000, 3000
+        self._draw_discard = False
+
+    def _setup_sounds(self):
+        pygame.mixer.init()
+        path = os.path.join('data', 'sounds')
+        self.place_sounds = []
+        self.deal_sounds = []
+        self.discard_sounds = []
+        self.shuffle_sounds = []
+        filename = os.path.join(path, 'cardPlace1.wav')
+        self.place_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardPlace2.wav')
+        self.place_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardPlace3.wav')
+        self.place_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardPlace4.wav')
+        self.place_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide1.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide2.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide3.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide4.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide5.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide6.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide7.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardSlide8.wav')
+        self.deal_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardShove1.wav')
+        self.discard_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardShove2.wav')
+        self.discard_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardShove3.wav')
+        self.discard_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardShove4.wav')
+        self.discard_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardFan1.wav')
+        self.shuffle_sounds.append(pygame.mixer.Sound(filename))
+        filename = os.path.join(path, 'cardFan2.wav')
+        self.shuffle_sounds.append(pygame.mixer.Sound(filename))
         
     def _setup_menus(self):
         """
         initialize menu button surfaces and rects, text etc
         """
+        #in game buttons
+        btn = pygame.Surface((200, 50))
+        btn.set_alpha(90)
+        btn.fill(WHITE)
+        self._continue_button = btn.copy()
+        self._continue_rect =  self._continue_button.get_rect(left=550,top=610)
+        self._gameoverng = btn.copy()
+        self._gameoverng_rect = self._continue_button.get_rect(
+                                 centerx=self._screen_rect.centerx,
+                                 y=390)
+        self._deal_btn =  btn.copy()
+        self._deal_rect = self._deal_btn.get_rect(left=550, top=340)
+        
+        #game menu
         self._menu_open = False
         self._menu = pygame.Surface((136, 150))
         self._menu_rect = self._menu.get_rect(left=750, top=25)
@@ -191,139 +250,14 @@ class CrossCribGUI:
         except:
             pass
 
-        
-    def keydown(self, event):
-        """
-        keydown handler
-        """
-        
-        key = event.key
-
-        if key == K_ESCAPE:
-            sys.exit()
-
-        elif key == K_c:
-            self.continue_game()
-        elif key == K_d:
-            self._game.deal()
-            self._grid.clear()
-            if self._game._dealer == 'computer':
-                self._turn = 'human'
-                self._game._cut = True
-            else:
-                self._turn  = 'computer'
-                pygame.time.wait(500)
-                
-        elif key == K_n:
-            self.newgame()
-
-        elif key == K_a:
-            if self._game._dealer:
-                self._continued = False
-                self._scored = False
-                self.newgame()
-                self.autofill()
-            else:
-                self.autofill()
-
-    def autofill(self):
-        self.cut_for_deal()
-        if self._game._dealer == 'human':
-            self._game.deal()
-            self._game._cut = True
-        while not self._grid.is_full():
-            if self._turn == 'human':
-                spaces =  [space for space in self._grid.sprites()
-                           if space._card is None]
-                if self._grid.centrespace  in spaces:
-                    spaces.remove(self._grid.centrespace)
-                move = spaces.pop()
-                row, col = move.row, move.col
-                card = self._game._human_player.card
-                self._game._board[row][col] = card
-                self._grid.spaces[(row,col)]._card = card
-                self._game._human_player.next_card()
-                self._turn = 'computer'
-            else:
-                self.move_ai()
-                self._turn = 'human'
-                
-    def menu_open(self):
-        collide = True
-        collide2 = False
-        collide3 = False
-        self._menu_open = True
-        while (collide or collide2 or collide3) and self._menu_open:
-            self.update()
-            pos = pygame.mouse.get_pos()
-            collide =  self._menubtn_rect.collidepoint(pos)
-            collide2 = self._menu_rect.collidepoint(pos)
-            collide3 = False
-            #self._screen.blit(self._menu, self._menu_rect)
-            self._screen.blit(self._background, self._menu_rect,
-                             area=self._menu_rect)
-            if self._mnewgame_rect.collidepoint(pos):
-                self._screen.blit(self._mnewgame, self._mnewgame_rect)
-                #pygame.draw.rect(self._screen, (0,0,0,1), self._mnewgame_rect)
-            elif (self._moptions_rect.collidepoint(pos) or
-                self._opt_menu_rect.collidepoint(pos)):
-                collide3 = self._opt_menu_rect.collidepoint(pos)
-                if collide3:
-                    self._opt_menu_open = True
-                else:
-                    self._opt_menu_open = False
-                self._screen.blit(self._moptions, self._moptions_rect)
-                self._screen.blit(self._background,
-                                  self._opt_menu_rect,
-                                  area=self._opt_menu_rect)                
-                if self._autodeal_rect.collidepoint(pos):
-                    self._screen.blit(self._opt_autodeal, self._autodeal_rect)
-                elif self._autocut_rect.collidepoint(pos):
-                    self._screen.blit(self._opt_autocut, self._autocut_rect)
-                elif self._soundonoff_rect.collidepoint(pos):
-                    self._screen.blit(self._opt_soundonoff,
-                                      self._soundonoff_rect)
-                self._screen.blit(self._autodealtext, self._autodealtext_rect)
-                self._screen.blit(self._autocuttext, self._autocuttext_rect)
-                self._screen.blit(self._soundtext, self._soundtext_rect)
-                pygame.draw.rect(self._screen, BLACK, self._opt_menu_rect, 1)
-                x = self._autodeal_rect.x + 116
-                y = self._autodeal_rect.centery - 5
-                pygame.draw.rect(self._screen, BLACK, (x,y, 10, 10), 1)
-                if self.options['autodeal']:
-                    rect = (x + 1, y + 1, 8, 8)
-                    pygame.draw.rect(self._screen, (58, 229, 52), rect)
-                y = self._autocut_rect.centery - 5
-                pygame.draw.rect(self._screen, BLACK, (x,y, 10, 10), 1)
-                if self.options['autocut']:
-                    rect = (x + 1, y + 1, 8, 8)
-                    pygame.draw.rect(self._screen, (58, 229, 52), rect)
-                y = self._soundonoff_rect.centery - 5
-                pygame.draw.rect(self._screen, BLACK, (x,y, 10, 10), 1)
-                if self.options['mute']:
-                    rect = (x + 1, y + 1, 8, 8)
-                    pygame.draw.rect(self._screen, (58, 229, 52), rect)                    
-                                     
-            
-            elif self._mquit_rect.collidepoint(pos):
-                self._screen.blit(self._mquit, self._mquit_rect)
-            pygame.draw.rect(self._screen, BLACK, self._menu_rect, 1)
-            self._screen.blit(self._mqtext, self._mqtext_rect)
-            self._screen.blit(self._moptext, self._moptext_rect)
-            self._screen.blit(self._mngtext, self._mngtext_rect)
-            pygame.display.flip()
-            self.process_events()
-        self._menu_open = False
-                
     def click(self, event):
         """
         click handler
         """
         #get position coordinates of event
         pos = event.pos
+    
         #check menu click
-        #if self._menubtn_rect.collidepoint(pos):
-        #    self.menu_open()
         if self._menu_open:
             if self._mnewgame_rect.collidepoint(pos):
                 self._menu_open = False
@@ -352,8 +286,19 @@ class CrossCribGUI:
                         col = space.col
                         #update game board for use by score funtions
                         self._game._board[row][col] = space._card
+                        #play place sound if sound on
+                        if not self.options['mute']:
+                            placesound = random.choice(self.place_sounds)
+                            placesound.play()
                         #get player's next card
                         self._game._human_player.next_card()
+                        #update screen to avoid blit delay
+                        #from wait call used to slow computer move
+                        #self._screen.blit(space._card.image, space.rect)
+                        #
+                        self.update()
+                        pygame.display.flip()
+                        pygame.time.wait(random.randint(1000, 2000))
                         #switch turns
                         self._turn = 'computer'
             #check for crib discard click
@@ -361,9 +306,15 @@ class CrossCribGUI:
                 self._game._human_player.discarded)):
                 #discard human player card to crib
                 self._game.crib_discard(self._game._human_player)
+                #play place sound if sound on
+                if not self.options['mute']:
+                    discardsound = random.choice(self.discard_sounds)
+                    discardsound.play()
                 #blit next human card so current card shows
                 card = self._game._human_player.card
                 self._screen.blit(card.image, self._discard_rect)
+                #set draw_discard to false
+                self._draw_discard = False
                         
         if (self._game._dealer == None and not self._game._inprogress and
                 self._grid.centrespace.rect.collidepoint(pos)):
@@ -383,12 +334,70 @@ class CrossCribGUI:
             
         if self._scored:
             if self._continue_rect.collidepoint(pos):
-                if not self._game._gameover:
-                    self.continue_game()
-                else:
+                self.continue_game()
+            if self._game._gameover:
+                if self._gameoverng_rect.collidepoint(pos):
                     self.newgame()
-            
+                
+                
+                    
+    def keydown(self, event):
+        """
+        keydown handler
+        """
+        
+        key = event.key
 
+        if key == K_ESCAPE:
+            sys.exit()
+
+        elif key == K_c:
+            self.continue_game()
+        elif key == K_d:
+            self.deal()
+            
+        elif key == K_n:
+            self.newgame()
+
+        elif key == K_a:
+            if self._game._dealer:
+                self._continued = False
+                self._scored = False
+                #self.newgame()
+                self.autofill()
+            else:
+                self.autofill()
+
+    def motion(self, event):
+        pos = event.pos
+        collide1 = False
+        collide2 = False
+        if self._menu_open:
+            collide1 = self._menu_rect.collidepoint(pos)
+            if self._opt_menu_open:
+                self._opt_menu_open = False
+                collide2 = self._opt_menu_rect.collidepoint(pos)
+                if collide2:
+                    self._opt_menu_open = True
+            if self._moptions_rect.collidepoint(pos):
+                self._opt_menu_open = True
+        if self._menubtn_rect.collidepoint(pos):
+            self._menu_open = True
+        elif collide1 or collide2:
+            self._menu_open = True
+        else:
+            self._menu_open = False
+
+        if self._game._inprogress and self._game._cut:
+            if not self._game._human_player.discarded:
+                #update discard rect to be over up-turned card
+                self._discard_rect.topleft = self._discard_pos
+                if self._discard_rect.collidepoint(pos):
+                    self._draw_discard = True
+                else:
+                    self._draw_discard = False
+             
+                
     def autosave(self):
         pass
 
@@ -403,8 +412,66 @@ class CrossCribGUI:
         self._save_options()
         sys.exit()
         
-    def cut_for_deal(self):        
+    def autofill(self):
+        """
+        for testing only available in devmode
+        """
+        if not self._game._inprogress:
+            if not self._game._dealer:
+                self.cut_for_deal()
+            else:
+                self.continue_game()
+        if self._game._dealer == 'human':
+            self._game.deal()
+            self._game._cut = True
+
+        while not self._grid.is_full():
+            if self._turn == 'human':
+                spaces =  [space for space in self._grid.sprites()
+                           if space._card is None]
+                if self._grid.centrespace  in spaces:
+                    spaces.remove(self._grid.centrespace)
+                move = spaces.pop()
+                row, col = move.row, move.col
+                card = self._game._human_player.card
+                self._game._board[row][col] = card
+                self._grid.spaces[(row,col)]._card = card
+                self._game._human_player.next_card()
+                self._turn = 'computer'
+            else:
+                self.move_ai()
+                self._turn = 'human'
+             
+    def newgame(self):
         
+        self._game.reset()
+        self._grid.clear()
+        self._scored = False
+        
+    def continue_game(self):
+        if not self._game._gameover:
+            self._grid.clear()
+            self._game.switch_dealer()
+            if self._game._dealer == 'human':
+                pygame.time.wait(500)
+                self._turn = 'computer'
+                self._game._cut = False
+                self._game._inprogress = False
+                self._game._crib = []
+
+            else:
+                self._game.deal()
+                self._turn  = 'human'
+                self._game._cut = True
+                
+            self._continued = True
+            self._scored = False
+
+        else:
+            self._continued = True
+            self._game._inprogress = False
+        
+    def cut_for_deal(self):        
         comp, human = self._game.cut_for_deal()
         if comp.cardnum == human.cardnum:
             return self.cut_for_deal()
@@ -424,46 +491,25 @@ class CrossCribGUI:
         pygame.display.flip()
         pygame.time.wait(2000)
 
-
     def deal(self):
         self._game.deal()
         self._grid.clear()
+        if not self.options['mute']:
+            #dealsound = random.choice(self.shuffle_sounds)
+            #dealsound.play()
+            #"""
+            for idx in xrange(5):
+                dealsound = random.choice(self.deal_sounds)
+                dealsound.play()
+                pygame.time.wait(300)
+            #"""
         if self._game._dealer == 'computer':
             self._turn = 'human'
             self._game._cut = True
         else:
             self._turn  = 'computer'
             pygame.time.wait(500)
-        
-    def newgame(self):
-        
-        self._game.reset()
-        self._grid.clear()
-        self._scored = False
-
-    def draw_hands(self):
-        """
-        draws player and comp held cards
-        """
-        offset = 10
-        cardsinhand = len(self._game._comp_player.hand)
-        for idx in xrange(cardsinhand):
-            self._screen.blit(self._deck._cardback.image,
-                              (650 + offset * idx, 25))
-        card = self._game._comp_player.card
-        if card:
-            self._screen.blit(card.image, (650 + offset * (cardsinhand), 25))
-
-        cardsinhand = len(self._game._human_player.hand)
-        for idx in xrange(cardsinhand):
-            self._screen.blit(self._deck._cardback.image,
-                              (650 + offset * idx, 580))
-        card = self._game._human_player.card
-        if card:
-            self._screen.blit(card.image, (650 +offset * (cardsinhand), 580))
-        self._discard_pos = 650 + offset * (cardsinhand), 580
-        
-
+            
     def check_hover(self):
         #move discard rect so it is over up-turned card in hand
         self._discard_rect.topleft = self._discard_pos
@@ -490,9 +536,7 @@ class CrossCribGUI:
                 elif event.type == MOUSEBUTTONDOWN:
                     self.click(event)
                 elif event.type == MOUSEMOTION:
-                    pos = event.pos
-                    if self._menubtn_rect.collidepoint(pygame.mouse.get_pos()):
-                        self.menu_open()
+                    self.motion(event)
 
     def move_ai(self):
         moves = self._game.move_ai()
@@ -517,7 +561,6 @@ class CrossCribGUI:
             self._game._crib.append(self._game._comp_player.card)
             self._game._comp_player.card = None
    
-
     def draw_scoreboard(self):
         #draw dots
         left = 800
@@ -588,33 +631,34 @@ class CrossCribGUI:
             for idx in xrange(cardsincrib):
                 pos = (550 + offset * idx, self._crib_pos[self._game._dealer])
                 self._screen.blit(self._deck._cardback.image, pos)
-
-    def continue_game(self):
-            
-            self._grid.clear()
-            self._game.switch_dealer()
-            if self._game._dealer == 'human':
-                pygame.time.wait(500)
-                #self._game._cut = False
-                self._turn = 'computer'
-                self._game._cut = False
-                self._game._inprogress = False
-                self._game._crib = []
-            
-            else:
-                self._game.deal()
-                self._turn  = 'human'
-                self._game._cut = True
                 
-            self._continued = True
-            self._scored = False
+    def draw_hands(self):
+        """
+        draws player and comp held cards
+        """
+        offset = 10
+        cardsinhand = len(self._game._comp_player.hand)
+        for idx in xrange(cardsinhand):
+            self._screen.blit(self._deck._cardback.image,
+                              (650 + offset * idx, 25))
+        if self._game._comp_player.card:
+            self._screen.blit(self._deck._cardback.image,
+                              (650 + offset * (cardsinhand), 25))
+
+        cardsinhand = len(self._game._human_player.hand)
+        for idx in xrange(cardsinhand):
+            self._screen.blit(self._deck._cardback.image,
+                              (650 + offset * idx, 580))
+        card = self._game._human_player.card
+        if card:
+            self._screen.blit(card.image, (650 +offset * (cardsinhand), 580))
+        self._discard_pos = 650 + offset * (cardsinhand), 580
+
+        if self._draw_discard:
+            self._screen.blit(self._discard, self._discard_pos)
+        
 
     def draw_scorescreen(self, player_hands, comp_hands):
-        #hand_scores = {'player':[], 'comp':[], 'winner':None, 'score':None,
-        #               'human_score':None, 'comp_score':None}
-        #
-        pygame.draw.line(self._screen, WHITE, (450, 50),(450, 678)) 
-        #
         self._screen.blit(self._scorebg, (50, 50))
         text = self._bigfont.render('Player', True, WHITE)
         self._screen.blit(text, (200, 75))
@@ -633,10 +677,10 @@ class CrossCribGUI:
         self._screen.blit(text, (506, compy))
         score = str(self.hand_info['human_score'])
         text = self._bigfont.render(score, True, WHITE)
-        self._screen.blit(text, (355, playery))
+        self._screen.blit(text, (350, playery))
         score =  str(self.hand_info['comp_score'])
         text = self._bigfont.render(score, True, WHITE)
-        self._screen.blit(text, (755, compy))
+        self._screen.blit(text, (750, compy))
         score = str(self.hand_info['cribscore'])
         text = self._font.render(score, True, WHITE)
         self._screen.blit(text, (cribx + 244, 495))
@@ -671,36 +715,116 @@ class CrossCribGUI:
             card = pygame.transform.scale(card.image, (42, 61))
             self._screen.blit(card, (cribx + idx * 46, 485))
 
-#            surface = self._scorenumbg.copy()
             text = self._font.render(player_hand_score, True, WHITE)
             width, height =  text.get_size()
-#            surface.blit(text, ((surface.get_width() - width) / 2,
-#                                 (surface.get_height() - height) / 2))
+
             self._screen.blit(text, (350, 122 + idx * 71))
 
-            surface = self._scorenumbg.copy()
-            text = self._font.render(comp_hand_score, True,
-                                     (0,0,0), WHITE)
+
+            text = self._font.render(comp_hand_score, True, WHITE)
             width, height =  text.get_size()
-            surface.blit(text, ((surface.get_width() - width) / 2,
-                                 (surface.get_height() - height) / 2))
-            self._screen.blit(surface, (750, 122 + idx * 71))
+
+            self._screen.blit(text, (750, 122 + idx * 71))
             score = str(self.hand_info['score'])
             if self.hand_info['winner']:
                 text = self.hand_info['winner'] + ' scores ' + score
                 text = self._bigfont.render(text, True, WHITE)
                 self._screen.blit(text, (206, 625))
             else:
-                text = self._bigfont.rende('Round draw', True, WHITE)
+                text = self._bigfont.render('Round draw', True, WHITE)
                 self._screen.blit(text, (206, 625))
-            self._screen.blit(self._continue_button, (550, 610))
-            text = self._bigfont.render('Continue', True, WHITE)
+            colour = WHITE
+            if self._continue_rect.collidepoint(pygame.mouse.get_pos()):
+                self._screen.blit(self._continue_button, (550, 610))
+                colour = BLACK
+            text = self._bigfont.render('Continue', True, colour)
             textrect = text.get_rect(centerx=self._continue_rect.centerx,
                                      centery=self._continue_rect.centery)
             self._screen.blit(text, textrect)
             pygame.draw.rect(self._screen, WHITE, self._continue_rect, 4)
 
-                
+    def draw_gameover(self):
+        self._screen.blit(self._gameoverbg, self._gameoverbg_rect)
+        text = "Gameover"
+        text = self._bigfont.render(text, True, WHITE)
+        text_rect = text.get_rect(centerx=self._gameoverbg_rect.centerx,
+                                  centery=280)
+        self._screen.blit(text, text_rect)
+        if self._game._winner == 'human':
+            compscore = self._game._comp_player.score
+            text = 'You beat the computer 31 to ' + str(compscore)
+            
+        else:
+            humanscore = self._game._human_player.score
+            text = 'The computer beat you 31 to ' + str(humanscore)
+        text = self._font.render(text, True, WHITE)
+        text_rect = text.get_rect(centerx=self._gameoverbg_rect.centerx,
+                                  centery=320)
+        self._screen.blit(text, text_rect)
+        colour = WHITE
+        if self._gameoverng_rect.collidepoint(pygame.mouse.get_pos()):
+            self._screen.blit(self._gameoverng, self._gameoverng_rect)
+            colour = BLACK
+        text = self._bigfont.render('New Game', True, colour)
+        textrect = text.get_rect(centerx=self._gameoverng_rect.centerx,
+                                 centery=self._gameoverng_rect.centery)
+        self._screen.blit(text, textrect)
+        pygame.draw.rect(self._screen, WHITE, self._gameoverng_rect, 4)
+
+    def draw_menu(self):
+        pos = pygame.mouse.get_pos()
+        #self._screen.blit(self._menu, self._menu_rect)
+        self._screen.blit(self._background, self._menu_rect,
+                         area=self._menu_rect)
+        if self._mnewgame_rect.collidepoint(pos):
+            self._screen.blit(self._mnewgame, self._mnewgame_rect)
+            #pygame.draw.rect(self._screen, (0,0,0,1), self._mnewgame_rect)
+        elif (self._moptions_rect.collidepoint(pos) or
+            self._opt_menu_rect.collidepoint(pos)):
+            self._screen.blit(self._moptions, self._moptions_rect)
+            self.draw_opt_menu(pos)
+        elif self._mquit_rect.collidepoint(pos):
+            self._screen.blit(self._mquit, self._mquit_rect)
+
+        pygame.draw.rect(self._screen, BLACK, self._menu_rect, 1)
+        self._screen.blit(self._mqtext, self._mqtext_rect)
+        self._screen.blit(self._moptext, self._moptext_rect)
+        self._screen.blit(self._mngtext, self._mngtext_rect)
+
+
+    def draw_opt_menu(self, pos):
+        self._screen.blit(self._background,
+                          self._opt_menu_rect,
+                          area=self._opt_menu_rect)                
+        if self._autodeal_rect.collidepoint(pos):
+            self._screen.blit(self._opt_autodeal, self._autodeal_rect)
+        elif self._autocut_rect.collidepoint(pos):
+            self._screen.blit(self._opt_autocut, self._autocut_rect)
+        elif self._soundonoff_rect.collidepoint(pos):
+            self._screen.blit(self._opt_soundonoff,
+                              self._soundonoff_rect)
+        self._screen.blit(self._autodealtext, self._autodealtext_rect)
+        self._screen.blit(self._autocuttext, self._autocuttext_rect)
+        self._screen.blit(self._soundtext, self._soundtext_rect)
+        pygame.draw.rect(self._screen, BLACK, self._opt_menu_rect, 1)
+        x = self._autodeal_rect.x + 116
+        y = self._autodeal_rect.centery - 5
+        pygame.draw.rect(self._screen, BLACK, (x,y, 10, 10), 1)
+        if self.options['autodeal']:
+            rect = (x + 1, y + 1, 8, 8)
+            pygame.draw.rect(self._screen, (58, 229, 52), rect)
+        y = self._autocut_rect.centery - 5
+        pygame.draw.rect(self._screen, BLACK, (x,y, 10, 10), 1)
+        if self.options['autocut']:
+            rect = (x + 1, y + 1, 8, 8)
+            pygame.draw.rect(self._screen, (58, 229, 52), rect)
+        y = self._soundonoff_rect.centery - 5
+        pygame.draw.rect(self._screen, BLACK, (x,y, 10, 10), 1)
+        if self.options['mute']:
+            rect = (x + 1, y + 1, 8, 8)
+            pygame.draw.rect(self._screen, (58, 229, 52), rect)
+
+        
     def score_update(self, player_hands, comp_hands):
         self._scored = True
         self.hand_info = self._game.score_update(player_hands, comp_hands)
@@ -709,8 +833,6 @@ class CrossCribGUI:
         """
         update gamestate and blit screena
         """
-        #set grid full boolean to avoid multiple calls to is_full
-        full = False
         #blit background and card grid
         self._screen.blit(self._background, self._screen_rect)
         self._screen.blit(self._grid.image, self._grid.rect)
@@ -720,12 +842,12 @@ class CrossCribGUI:
                                   self._grid.centrespace.rect)
         #draw scoreboard
         self.draw_scoreboard()
-        #draw cards to game grid
-        for space in self._grid.sprites():
-            if space._card:
-                self._screen.blit(space._card.image, space.rect)
-                
+        
         if self._game._inprogress:
+            #draw cards to game grid
+            for space in self._grid.sprites():
+                if space._card:
+                    self._screen.blit(space._card.image, space.rect)
             #draw cut card or card back
             if self._game._cut:
                 self._screen.blit(self._game._cutcard.image,
@@ -733,38 +855,49 @@ class CrossCribGUI:
             else:
                 self._screen.blit(self._deck._cardback.image,
                                   self._grid.centrespace.rect)
+                if self.options['autocut']:
+                    self._game._cut = True
+               
             #draw players' hands
             self.draw_hands()
 
             #draw crib face down or up if grid full
             if self._grid.is_full():
                 self.draw_crib(True)
-                full = True
+                
             else:
                 self.draw_crib()
                 
-
-            #check for hover over discard card    
-            if not self._game._human_player.discarded:
-                self.check_hover()
-
             #call ai move if needed
             if self._turn is 'computer' and self._game._cut:
-                if self._game._comp_player.card: 
+                if self._game._comp_player.card:
                     self.move_ai()
-                    self._turn = 'human' 
+                    if not self.options['mute']:
+                        placesound = random.choice(self.place_sounds)
+                        placesound.play()
+                    
+                    self._turn = 'human'
+            
 
         elif self._game._dealer == 'human':
-            text = self._bigfont.render('Deal', True, BLACK)
-            textrect = text.get_rect(centerx=self._deal_rect.centerx,
-                                     centery=self._deal_rect.centery)
-            self._screen.blit(text, textrect)
-            pygame.draw.rect(self._screen, BLACK, self._deal_rect, 4)
+            #check options if autodeal set to call deal
+            #deal button still gets drawn for a frame
+            if self.options['autodeal']:
+                self.deal()
+
+            else:
+                if self._deal_rect.collidepoint(pygame.mouse.get_pos()):
+                    self._screen.blit(self._deal_btn, self._deal_rect)
+                text = self._bigfont.render('Deal', True, BLACK)
+                textrect = text.get_rect(centerx=self._deal_rect.centerx,
+                                         centery=self._deal_rect.centery)
+                self._screen.blit(text, textrect)
+                pygame.draw.rect(self._screen, BLACK, self._deal_rect, 4)
                          
 
         #if grid is full auto discard last card switch tur n if necessary.
         #update score function and draw scorescreen until game continued
-        if full:         
+        if self._grid.is_full():       
             if self._game._human_player.card:
                 self._game.crib_discard(self._game._human_player)
                     
@@ -777,7 +910,15 @@ class CrossCribGUI:
 
             if not self._scored:
                self.score_update(player_hands, comp_hands)
-            self.draw_scorescreen(player_hands, comp_hands)
+            if not self._game._gameover and not self._continued:   
+                self.draw_scorescreen(player_hands, comp_hands)
+            else:
+                self.draw_gameover()
+
+        #finally draw menu on top of entire screen if open
+        if self._menu_open:
+            self.draw_menu()
+
                     
     def main(self):
         """
@@ -787,13 +928,14 @@ class CrossCribGUI:
         clock = pygame.time.Clock()
         while 1:
             #update display at 60fps
-            clock.tick(30)
+            clock.tick(60)
             #process input events
             self.process_events()
             #blit screen and update gamstate(calls ai move function) 
             self.update()
             #flip screen
             pygame.display.flip()
+            
                         
                     
             

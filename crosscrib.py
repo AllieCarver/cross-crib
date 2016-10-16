@@ -20,6 +20,7 @@ class CrossCrib:
         self._dealer = None
         self._inprogress = False
         self._gameover = False
+        self._winner = None
         #Card deck is not created until gui is instantiated
         #at which point the deck is passed to the game object
         self._cards = deckofcards.sprites()
@@ -81,6 +82,8 @@ class CrossCrib:
         self._cut = False
         self._dealer = None
         self._inprogress = False
+        self._gameover = False
+        self._winner = None
         
     def score_hand(self, hand, check_jack=False):
         #check for pairs, triplets and quadruplets
@@ -211,6 +214,8 @@ class CrossCrib:
             if self._human_player.score >= 31:
                 self._human_player.score = 31
                 self._gameover = True
+                self._winner = 'human'
+                self._inprogress = False
         elif dif < 0:
             score = self._comp_player.score
             self._comp_player.old_score = score
@@ -220,6 +225,8 @@ class CrossCrib:
             if self._comp_player.score >= 31:
                 self._comp_player.score = 31
                 self._gameover = True
+                self._winner = 'computer'
+                self._inprogress = False
 
         return hand_scores
     
