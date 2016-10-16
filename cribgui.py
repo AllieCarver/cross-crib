@@ -509,23 +509,6 @@ class CrossCribGUI:
         else:
             self._turn  = 'computer'
             pygame.time.wait(500)
-            
-    def check_hover(self):
-        #move discard rect so it is over up-turned card in hand
-        self._discard_rect.topleft = self._discard_pos
-        #check collision
-        collision = self._discard_rect.collidepoint(pygame.mouse.get_pos())
-        #while collions and not yet discarded run loop to draw discard overlay
-        while collision and (not self._game._human_player.discarded):         
-            if self._game._cut:
-                card = self._game._human_player.card.image
-                self._screen.blit(card, self._discard_pos)
-                self._screen.blit(self._discard, self._discard_pos)
-            pygame.display.update(self._discard_rect)
-            collision = self._discard_rect.collidepoint(pygame.mouse.get_pos())
-            self.process_events()
-            pygame.event.pump()
-            
 
     def process_events(self):
         for event in pygame.event.get():
