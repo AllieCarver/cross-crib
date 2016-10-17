@@ -80,6 +80,7 @@ class CrossCribGUI:
         self._setup_options()
         self._crib_pos = {'human':440, 'computer': 170}
         self._turn = ''
+        self._timetowait = 0
         self._continued = False
         self._scored = False
         self.hand_info = None
@@ -292,13 +293,9 @@ class CrossCribGUI:
                             placesound.play()
                         #get player's next card
                         self._game._human_player.next_card()
-                        #update screen to avoid blit delay
-                        #from wait call used to slow computer move
-                        #self._screen.blit(space._card.image, space.rect)
-                        #
-                        self.update()
-                        pygame.display.flip()
-                        pygame.time.wait(random.randint(1000, 2000))
+                        #add some timetowait to delay computer move
+                        self._timetowait = 0
+                        self._timetowait = random.randint(1000, 2000)
                         #switch turns
                         self._turn = 'computer'
             #check for crib discard click
@@ -363,7 +360,6 @@ class CrossCribGUI:
             if self._game._dealer:
                 self._continued = False
                 self._scored = False
-                #self.newgame()
                 self.autofill()
             else:
                 self.autofill()
@@ -453,7 +449,8 @@ class CrossCribGUI:
             self._grid.clear()
             self._game.switch_dealer()
             if self._game._dealer == 'human':
-                pygame.time.wait(500)
+                self._timetowait = 0
+                self._timetowait = random.randint(500, 2000)
                 self._turn = 'computer'
                 self._game._cut = False
                 self._game._inprogress = False
@@ -489,20 +486,16 @@ class CrossCribGUI:
         self._screen.blit(human.image, (760, 580))
         self.draw_scoreboard()
         pygame.display.flip()
-        pygame.time.wait(2000)
+        pygame.time.wait(1500)
 
     def deal(self):
         self._game.deal()
         self._grid.clear()
         if not self.options['mute']:
-            #dealsound = random.choice(self.shuffle_sounds)
-            #dealsound.play()
-            #"""
             for idx in xrange(5):
                 dealsound = random.choice(self.deal_sounds)
                 dealsound.play()
                 pygame.time.wait(300)
-            #"""
         if self._game._dealer == 'computer':
             self._turn = 'human'
             self._game._cut = True
@@ -854,13 +847,14 @@ class CrossCribGUI:
             #call ai move if needed
             if self._turn is 'computer' and self._game._cut:
                 if self._game._comp_player.card:
-                    self.move_ai()
-                    if not self.options['mute']:
-                        placesound = random.choice(self.place_sounds)
-                        placesound.play()
+                    if self._timetowait <= 0:
+                        self.move_ai()
+                        if not self.options['mute']:
+                            placesound = random.choice(self.place_sounds)
+                            placesound.play()
                     
-                    self._turn = 'human'
-            
+                        self._turn = 'human'
+                    self._timetowait -= 16
 
         elif self._game._dealer == 'human':
             #check options if autodeal set to call deal
