@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 """
 Cross-Crib Gui
 """
@@ -6,6 +7,7 @@ import os, sys, random
 import pygame
 from pygame.locals import *
 import json
+import pickle
 import crosscrib
 
 #initialize pygame
@@ -89,7 +91,7 @@ class CrossCribGUI:
         self._grid = Grid()
         self._grid.rect.x = GRID_OFFSETX
         self._grid.rect.y = GRID_OFFSETY
-        
+        self._loadscreen = True
         #enter main loop
         self.main()
     
@@ -99,6 +101,7 @@ class CrossCribGUI:
         font = os.path.join('data', 'AlfaSlabOne-Regular.ttf')
         self._font = pygame.font.Font(font, 15)
         self._bigfont = pygame.font.Font(font, 25)
+        self._logofont = pygame.font.Font(font, 75)
         self._smallfont = pygame.font.Font(font, 10)
         
     def _setup_screens(self):
@@ -116,6 +119,12 @@ class CrossCribGUI:
         self._gameoverbg_rect = self._gameoverbg.get_rect(
                                   centerx=self._screen_rect.centerx,
                                   centery=self._screen_rect.centery)
+        self._loadscreenbg = pygame.Surface((500, 500))
+        self._loadscreenbg.set_alpha(230)
+        self._loadscreenbg.fill(BLACK)
+        self._loadscreenbg_rect = self._loadscreenbg.get_rect(
+                                 centerx=self._screen_rect.centerx,
+                                 centery=self._screen_rect.centery)
         self._discard, self._discard_rect = load_image('discard.png', alpha=True)
         self._discard_pos =  3000, 3000
         self._draw_discard = False
@@ -168,10 +177,33 @@ class CrossCribGUI:
         """
         initialize menu button surfaces and rects, text etc
         """
-        #in game buttons
+        
         btn = pygame.Surface((200, 50))
         btn.set_alpha(90)
         btn.fill(WHITE)
+        #loadscreen buttns
+        offset = 70
+        self._logotext = self._logofont.render('CrossCrib', True, WHITE)
+        self._logotext_rect = self._logotext.get_rect(
+                                centerx=self._screen_rect.centerx,
+                                y=150)
+        self._ldscrnng = btn.copy()
+        self._ldscrnng_rect = self._ldscrnng.get_rect(
+                                centerx=self._screen_rect.centerx,
+                                y=290)
+        self._ldscrnrsm = btn.copy()
+        self._ldscrnrsm_rect = self._ldscrnrsm.get_rect(
+                                 centerx=self._screen_rect.centerx,
+                                 y=self._ldscrnng_rect.y + offset)
+        self._ldscrnhowto = btn.copy()
+        self._ldscrnhowto_rect = self._ldscrnhowto.get_rect(
+                                   centerx=self._screen_rect.centerx,
+                                   y=self._ldscrnrsm_rect.y + offset)
+        self._ldscrnquit = btn.copy()
+        self._ldscrnquit_rect = self._ldscrnquit.get_rect(
+                                  centerx=self._screen_rect.centerx,
+                                  y=self._ldscrnhowto_rect.y + offset)
+        #in game buttons
         self._continue_button = btn.copy()
         self._continue_rect =  self._continue_button.get_rect(left=550,top=610)
         self._gameoverng = btn.copy()
@@ -242,7 +274,150 @@ class CrossCribGUI:
         except Exception as e:
             print e
             self.options = {'autodeal':False, 'autocut':False, 'mute':False}
+            
+    def resumegame(self):
+        filename = os.path.join('data', 'savedgame.json')
+        try:
+            with open(filename, 'r') as f:
+                game = json.load(f, encoding='ascii')
+                if game['dealer']:
+                    self._game._dealer = game['dealer']#.encode('ascii')
+                self._game._inprogress = game['inprog']
+                self._game._gameover = game['gameover']  
+                 
+                if game['winner']:
+                    self._game._winner = game['winner']#.encode('ascii')
+                    
+                self._turn = game['turn']#.encode('ascii')
 
+                if game['cutcard']:
+                    self._game._cutcard = self._deck._cards[game['cutcard']]
+                else:
+                    self._game._cutcard = None
+                self._game._cut = game['cut']
+                self._timetowait = game['timetowait']
+                self._continued = game['continued']
+                self._scored = game['scored']
+                self.hand_info = game['handinfo'] 
+            
+                
+                if game['crib']:
+                    self._game._crib = []
+                    for card in game['crib']:
+                        self._game._crib.append(self._deck._cards[card])
+            
+                #iterates
+                for row in xrange(GRID_DIM):
+                    for col in xrange(GRID_DIM):
+                        card = game['board'][row][col]
+                        if card:
+                            card = self._deck._cards[card]
+                            self._game._board[row][col] = card
+                            self._grid.spaces[(row, col)]._card = card
+                self._grid.spaces[(2, 2)]._card = None
+                if game['humcard']:
+                    card = self._deck._cards[game['humcard']]
+                else:
+                    card = None
+                self._game._human_player.card = card
+                if game['humhan']:
+                    for cardstr in game['humhan']:
+                        card = self._deck._cards[cardstr]
+                        self._game._human_player.hand.append(card)
+                self._game._human_player.score = game['humscore']
+                self._game._human_player.old_score = game['humoldscore']
+                self._game._human_player.discarded = game['humdiscard']
+                if game['compcard']:
+                    card = self._deck._cards[game['compcard']]
+                else:
+                    card = None
+                self._game._comp_player.card = card
+                if game['comphand']:
+                    for cardstr in game['comphand']:
+                        card = self._deck._cards[cardstr]
+                        self._game._comp_player.hand.append(card)
+                self._game._comp_player.score = game['compscore']
+                self._game._comp_player.old_score = game['compoldscore']
+                self._game._comp_player.discarded = game['compdiscard']
+
+                        
+                self._loadscreen = False
+                
+        except Exception as e:
+            print e
+            self.newgame()
+
+    def autosave(self):
+        filename = os.path.join('data', 'savedgame.json')
+        try:
+            if self._loadscreen:
+                return
+            with open(filename, 'w') as f:
+                game = {}
+                game['dealer'] = self._game._dealer
+                game['inprog'] = self._game._inprogress
+                game['gameover'] = self._game._gameover
+                game['winner'] = self._game._winner
+                game['turn'] = self._turn
+                if self._game._cutcard:
+                    game['cutcard'] = self._game._cutcard._card
+                else:
+                    game['cutcard'] = None
+                game['cut'] = self._game._cut
+                game['timetowait'] = self._timetowait
+                game['continued'] = self._continued
+                game['scored'] = self._scored
+                game['handinfo'] = self.hand_info
+            
+                if self._game._crib:
+                    crib = []
+                    for card in self._game._crib:
+                        crib.append(card._card)
+                    game['crib'] = crib
+                else:
+                    self._game._crib = None
+                    
+                game['board'] =  [[None for idx in xrange(GRID_DIM)]
+                                        for idx in xrange(GRID_DIM)]
+                #iterate board for played cards
+                for row in xrange(GRID_DIM):
+                    for col in xrange(GRID_DIM):
+                        space = self._game._board[row][col]
+                        if space:
+                            game['board'][row][col] = space._card
+                if self._game._cutcard:
+                    card = self._game._cutcard._card
+                else:
+                    card = None
+                game['board'][2][2] = card
+                if self._game._human_player.card:
+                    game['humcard'] = self._game._human_player.card._card
+                else:
+                    game['humcard'] = None
+                game['humhan'] = []
+                if self._game._human_player.hand:
+                    for card in self._game._human_player.hand:
+                        game['humhan'].append(card._card)
+                game['humscore'] = self._game._human_player.score
+                game['humoldscore'] = self._game._human_player.old_score
+                game['humdiscard'] = self._game._human_player.discarded
+                if self._game._comp_player.card:
+                    game['compcard'] = self._game._comp_player.card._card
+                else:
+                    game['compcard'] = None
+                game['comphand'] = []
+                if self._game._comp_player.hand:
+                    for card in self._game._comp_player.hand:
+                        game['comphand'].append(card._card)
+                game['compscore'] = self._game._comp_player.score
+                game['compoldscore'] = self._game._comp_player.old_score
+                game['compdiscard'] = self._game._comp_player.discarded
+                json.dump(game, f, encoding='ascii')
+                
+        except Exception as e:
+            print e
+
+            
     def _save_options(self):
         filename = os.path.join('data', 'options.json')
         try:
@@ -313,8 +488,10 @@ class CrossCribGUI:
                 #set draw_discard to false
                 self._draw_discard = False
                         
-        if (self._game._dealer == None and not self._game._inprogress and
-                self._grid.centrespace.rect.collidepoint(pos)):
+        if (self._game._dealer == None and
+              not self._game._inprogress and
+              not self._loadscreen and
+              self._grid.centrespace.rect.collidepoint(pos)):
             self.cut_for_deal()
 
         if self._game._dealer == 'human':
@@ -327,14 +504,25 @@ class CrossCribGUI:
             else:
                 if self._deal_rect.collidepoint(pos):
                     self.deal()
-            
-            
+                    
+        if self._loadscreen:    
+            if self._ldscrnng_rect.collidepoint(pos):
+                self.newgame()
+                self._loadscreen = False
+            elif self._ldscrnrsm_rect.collidepoint(pos):
+                self.resumegame()
+                self._loadscreen = False
+            elif self._ldscrnhowto_rect.collidepoint(pos):
+                self._draw_howto = True
+            elif self._ldscrnquit_rect.collidepoint(pos):
+                self.quit()
+                
         if self._scored:
             if self._continue_rect.collidepoint(pos):
                 self.continue_game()
-            if self._game._gameover:
-                if self._gameoverng_rect.collidepoint(pos):
-                    self.newgame()
+        if self._game._gameover:
+            if self._gameoverng_rect.collidepoint(pos):
+                self.newgame()
                 
                 
                     
@@ -394,8 +582,6 @@ class CrossCribGUI:
                     self._draw_discard = False
              
                 
-    def autosave(self):
-        pass
 
     def toggle_option(self, option):
         self.options[option] = not self.options[option]
@@ -536,7 +722,54 @@ class CrossCribGUI:
                 self._game._comp_player.discarded == False):
             self._game._crib.append(self._game._comp_player.card)
             self._game._comp_player.card = None
+
+    def draw_loadscreen(self):
    
+        self._screen.blit(self._loadscreenbg, self._loadscreenbg_rect)
+        self._screen.blit(self._logotext, self._logotext_rect)
+        pos = pygame.mouse.get_pos()
+        
+        colour = WHITE
+        if self._ldscrnng_rect.collidepoint(pos):
+            self._screen.blit(self._ldscrnng, self._ldscrnng_rect)
+            colour = BLACK
+        text = self._bigfont.render('New Game', True, colour)
+        textrect = text.get_rect(centerx=self._ldscrnng_rect.centerx,
+                                 centery=self._ldscrnng_rect.centery)
+        self._screen.blit(text, textrect)
+        pygame.draw.rect(self._screen, WHITE, self._ldscrnng_rect, 4)
+
+        colour = WHITE
+        if self._ldscrnrsm_rect.collidepoint(pos):
+            self._screen.blit(self._ldscrnrsm, self._ldscrnrsm_rect)
+            colour = BLACK
+        text = self._bigfont.render('Resume', True, colour)
+        textrect = text.get_rect(centerx=self._ldscrnrsm_rect.centerx,
+                                 centery=self._ldscrnrsm_rect.centery)
+        self._screen.blit(text, textrect)
+        pygame.draw.rect(self._screen, WHITE, self._ldscrnrsm_rect, 4)
+
+        colour = WHITE
+        if self._ldscrnhowto_rect.collidepoint(pos):
+            self._screen.blit(self._ldscrnhowto, self._ldscrnhowto_rect)
+            colour = BLACK
+        text = self._bigfont.render('How to Play', True, colour)
+        textrect = text.get_rect(centerx=self._ldscrnhowto_rect.centerx,
+                                 centery=self._ldscrnhowto_rect.centery)
+        self._screen.blit(text, textrect)
+        pygame.draw.rect(self._screen, WHITE, self._ldscrnhowto_rect, 4)
+
+        colour = WHITE
+        if self._ldscrnquit_rect.collidepoint(pos):
+            self._screen.blit(self._ldscrnquit, self._ldscrnquit_rect)
+            colour = BLACK
+        text = self._bigfont.render('Quit', True, colour)
+        textrect = text.get_rect(centerx=self._ldscrnquit_rect.centerx,
+                                 centery=self._ldscrnquit_rect.centery)
+        self._screen.blit(text, textrect)
+        pygame.draw.rect(self._screen, WHITE, self._ldscrnquit_rect, 4)
+        
+    
     def draw_scoreboard(self):
         #draw dots
         left = 800
@@ -812,8 +1045,11 @@ class CrossCribGUI:
         #blit background and card grid
         self._screen.blit(self._background, self._screen_rect)
         self._screen.blit(self._grid.image, self._grid.rect)
-        #draw cardback prior to dealer cut
+        #draw cardback prior to dealer cut or loadscreen
         if (self._game._dealer == None and not self._game._inprogress):
+            if self._loadscreen:
+                self.draw_loadscreen()
+            else:
                 self._screen.blit(self._deck._cardback.image,
                                   self._grid.centrespace.rect)
         #draw scoreboard
@@ -843,11 +1079,15 @@ class CrossCribGUI:
                 
             else:
                 self.draw_crib()
-                
+
+         
             #call ai move if needed
-            if self._turn is 'computer' and self._game._cut:
+            if self._turn == 'computer' and self._game._cut:
+                print 'ai move first conditionals passed'
                 if self._game._comp_player.card:
+                    print 'ai move second conditionals passed'
                     if self._timetowait <= 0:
+                        print 'ai move third condtional passed, ai moved'
                         self.move_ai()
                         if not self.options['mute']:
                             placesound = random.choice(self.place_sounds)
@@ -945,6 +1185,7 @@ class Grid(pygame.sprite.Group):
                 self.spaces[(row, col)] = space
                 if row == 2 and col == 2:
                     self.centrespace = space
+                    
     def clear(self):
         """
         clear grid
