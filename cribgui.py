@@ -106,7 +106,7 @@ class CrossCribGUI:
         
     def _setup_screens(self):
         pygame.display.set_caption('CrossCrib', 'CrossCrib')
-        self._screen =  pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
+        self._screen =  pygame.display.set_mode((WIDTH, HEIGHT))#, pygame.NOFRAME)
         self._screen_rect = self._screen.get_rect()
         self._background, dummy_rect = load_image('bg.png', True)
         self._loadscreen, dummy_rect = load_image('loadscreen.png', True)
